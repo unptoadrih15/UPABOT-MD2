@@ -1,0 +1,10 @@
+node_modules
+session
+sessions
+auth_info
+baileys_auth_info
+tmp
+cache
+.env
+*.session
+package-lock.json
