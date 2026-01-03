@@ -1,46 +1,56 @@
 import express from 'express'
 import { createServer } from 'http'
-import path from 'path'
-import { Socket } from 'socket.io'
 import { toBuffer } from 'qrcode'
 import fetch from 'node-fetch'
 
-function connect(conn, PORT) {
-let app = global.app = express()
-console.log(app)
-let server = global.server = createServer(app)
-let _qr = 'invalid'
+// Función principal que inicia el servidor web
+function connect(conn, PORT = process.env.PORT || 3000) {
+  const app = global.app = express()
+  const server = global.server = createServer(app)
 
-conn.ev.on('connection.update', function appQR({ qr }) {
-if (qr) _qr = qr
-})
+  let _qr = 'invalid'
 
-app.use(async (req, res) => {
-res.setHeader('content-type', 'image/png')
-res.end(await toBuffer(_qr))
-})
-  
-server.listen(PORT, () => {
-console.log('App listened on port', PORT)
-if (opts['keepalive']) keepAlive()
-})}
+  // Escuchar QR de Baileys
+  conn.ev.on('connection.update', ({ qr }) => {
+    if (qr) _qr = qr
+  })
 
-function pipeEmit(event, event2, prefix = '') {
-let old = event.emit
-event.emit = function (event, ...args) {
-old.emit(event, ...args)
-event2.emit(prefix + event, ...args)
+  // Ruta principal: Render / UptimeRobot
+  app.get('/', async (req, res) => {
+    try {
+      res.setHeader('Content-Type', 'image/png')
+      res.end(await toBuffer(_qr))
+    } catch (e) {
+      res.status(500).send('QR no disponible')
+    }
+  })
+
+  // Escuchar puerto (OBLIGATORIO PARA RENDER)
+  server.listen(PORT, () => {
+    console.log('Servidor web activo en el puerto', PORT)
+  })
 }
-return {
-unpipeEmit() {
-event.emit = old
-}}}
 
+// Función para redirigir eventos (NO TOCAR)
+function pipeEmit(event, event2, prefix = '') {
+  const old = event.emit
+  event.emit = function (eventName, ...args) {
+    old.call(this, eventName, ...args)
+    event2.emit(prefix + eventName, ...args)
+  }
+  return {
+    unpipeEmit() {
+      event.emit = old
+    }
+  }
+}
+
+// KeepAlive opcional (NO necesario en Render, pero no estorba)
 function keepAlive() {
-const url = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-if (/(\/\/|\.)undefined\./.test(url)) return
-setInterval(() => {
-fetch(url).catch(console.error)
-}, 5 * 1000 * 60)}
+  if (!process.env.RENDER_EXTERNAL_URL) return
+  setInterval(() => {
+    fetch(process.env.RENDER_EXTERNAL_URL).catch(() => {})
+  }, 5 * 60 * 1000)
+}
 
 export default connect

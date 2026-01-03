@@ -1,3 +1,5 @@
+require('./server')
+
 import { dirname, join } from 'path'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
